@@ -120,7 +120,7 @@ You need **Node.js 22 or newer** (`node -v` to check) and a computer that stays
 on while the app is in use.
 
 ```sh
-git clone <this repository's URL> decodable-reader
+git clone https://github.com/skareagle/SoundMeOut.git decodable-reader
 cd decodable-reader
 npm install
 npm start
