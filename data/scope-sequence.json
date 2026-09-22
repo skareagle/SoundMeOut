@@ -1,0 +1,92 @@
+[
+  {
+    "id": 1,
+    "tag": "Step 1",
+    "name": "short a",
+    "teaches": ["short a", "common single consonants", "CVC and VC words"],
+    "graphemes_added": ["a", "b", "c", "d", "f", "g", "h", "j", "k", "l", "m", "n", "p", "r", "s", "t", "v", "w", "y", "z"],
+    "structures_added": ["VC", "CVC"],
+    "heart_words": ["the", "a", "is", "has", "his", "as", "and", "to"]
+  },
+  {
+    "id": 2,
+    "tag": "Step 2",
+    "name": "all short vowels",
+    "teaches": ["short e i o u", "x as /ks/"],
+    "graphemes_added": ["e", "i", "o", "u", "x"],
+    "structures_added": [],
+    "heart_words": ["i", "of", "put", "go", "no"]
+  },
+  {
+    "id": 3,
+    "tag": "Step 3",
+    "name": "digraphs",
+    "teaches": ["sh ch th ck wh", "ng nk", "qu", "doubled final ll ss ff zz"],
+    "graphemes_added": ["sh", "ch", "th", "ck", "wh", "ng", "nk", "qu", "ll", "ss", "ff", "zz"],
+    "structures_added": [],
+    "heart_words": ["he", "she", "we", "me", "be", "was", "you", "said", "what", "my", "do", "so"]
+  },
+  {
+    "id": 4,
+    "tag": "Step 4",
+    "name": "blends",
+    "teaches": ["initial and final consonant blends", "-s endings on short-vowel words", "two-syllable closed compounds"],
+    "graphemes_added": [],
+    "structures_added": ["CCVC", "CVCC", "CCVCC", "CVC+s", "CVC.CVC"],
+    "heart_words": ["from", "they", "are"]
+  },
+  {
+    "id": 5,
+    "tag": "Step 5",
+    "name": "magic e",
+    "teaches": ["split digraphs a_e i_e o_e u_e"],
+    "graphemes_added": ["a_e", "i_e", "o_e", "u_e"],
+    "structures_added": ["CVCe", "CCVCe", "CVCe+s"],
+    "heart_words": ["have", "give", "live", "come", "some", "one", "were", "there", "where"]
+  },
+  {
+    "id": 6,
+    "tag": "Step 6",
+    "name": "vowel teams I",
+    "teaches": ["ai ay ee ea"],
+    "graphemes_added": ["ai", "ay", "ee", "ea"],
+    "structures_added": ["CVVC"],
+    "heart_words": []
+  },
+  {
+    "id": 7,
+    "tag": "Step 7",
+    "name": "vowel teams II",
+    "teaches": ["oa ow oo"],
+    "graphemes_added": ["oa", "ow", "oo"],
+    "structures_added": [],
+    "heart_words": []
+  },
+  {
+    "id": 8,
+    "tag": "Step 8",
+    "name": "r-controlled",
+    "teaches": ["ar or er ir ur"],
+    "graphemes_added": ["ar", "or", "er", "ir", "ur"],
+    "structures_added": [],
+    "heart_words": []
+  },
+  {
+    "id": 9,
+    "tag": "Step 9",
+    "name": "diphthongs",
+    "teaches": ["oi oy ou ow"],
+    "graphemes_added": ["oi", "oy", "ou", "ow"],
+    "structures_added": [],
+    "heart_words": []
+  },
+  {
+    "id": 10,
+    "tag": "Step 10",
+    "name": "common endings",
+    "teaches": ["-ing -ed -s -es", "-le syllables"],
+    "graphemes_added": ["ed", "es", "le"],
+    "structures_added": ["-ing", "-ed", "-es", "C-le"],
+    "heart_words": []
+  }
+]

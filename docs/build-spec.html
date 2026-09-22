@@ -1,0 +1,832 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}</style><style>:root{color-scheme:light dark;--md-bg:#fff;--md-text:rgba(0,0,0,.8);--md-muted:rgba(0,0,0,.6);--md-fill:rgba(0,0,0,.04);--md-fill-strong:rgba(0,0,0,.06);--md-rule:rgba(0,0,0,.1);--md-rule-strong:rgba(0,0,0,.16);--md-link:hsl(210 100% 45%)}@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){--md-bg:#0d0d0d;--md-text:rgba(255,255,255,.85);--md-muted:rgba(255,255,255,.6);--md-fill:rgba(255,255,255,.06);--md-fill-strong:rgba(255,255,255,.09);--md-rule:rgba(255,255,255,.14);--md-rule-strong:rgba(255,255,255,.22);--md-link:hsl(210 100% 72%)}}:root[data-theme="dark"]{color-scheme:dark;--md-bg:#0d0d0d;--md-text:rgba(255,255,255,.85);--md-muted:rgba(255,255,255,.6);--md-fill:rgba(255,255,255,.06);--md-fill-strong:rgba(255,255,255,.09);--md-rule:rgba(255,255,255,.14);--md-rule-strong:rgba(255,255,255,.22);--md-link:hsl(210 100% 72%)}:root[data-theme="light"]{color-scheme:light}@media print{:root,:root[data-theme="dark"]{color-scheme:light;--md-bg:#fff;--md-text:rgba(0,0,0,.8);--md-muted:rgba(0,0,0,.6);--md-fill:rgba(0,0,0,.04);--md-fill-strong:rgba(0,0,0,.06);--md-rule:rgba(0,0,0,.1);--md-rule-strong:rgba(0,0,0,.16);--md-link:hsl(210 100% 45%)}}body{background:var(--md-bg);color:var(--md-text);max-width:720px;margin:0 auto;padding:32px;display:flex;flex-direction:column;gap:10px;font:14px/1.55 -apple-system,BlinkMacSystemFont,'SF Pro','Segoe UI',sans-serif;overflow-wrap:break-word}body>:first-child{margin-top:0}h1,h2,h3,h4,h5,h6{margin:6px 0 0;line-height:1.25;font-weight:600;text-wrap:balance}h1{font-size:1.35em}h2{font-size:1.15em;color:var(--md-muted)}h3,h4,h5,h6{font-size:1em}p,ul,ol,blockquote,table,pre,hr{margin:0}strong{font-weight:600}a{color:var(--md-link);text-decoration:none}a:hover{text-decoration:underline}ul,ol{display:flex;flex-direction:column;gap:6px;padding-left:22px}ul{list-style:disc}ol{list-style:decimal}:is(li,td,th)>*+:is(p,ul,ol,blockquote){margin-top:6px}blockquote{display:flex;flex-direction:column;gap:10px;border-left:2px solid var(--md-rule);padding-left:10px;color:var(--md-muted)}:not(pre)>code{background:var(--md-fill);padding:1px 3px;border-radius:4px;font:.92em 'SF Mono',ui-monospace,Menlo,Consolas,monospace}a>code{background:none;color:inherit}pre{background:var(--md-fill);padding:10px 12px;border-radius:6px;overflow-x:auto;font:12px/1.5 'SF Mono',ui-monospace,Menlo,Consolas,monospace;margin-block:4px}pre code{background:none;padding:0;font:inherit}table{width:100%;border-collapse:separate;border-spacing:2px;font:inherit}th,td{padding:6px 8px;border-radius:3px;text-align:left;vertical-align:top}th{background:var(--md-fill-strong);font-weight:600}td{background:var(--md-fill)}:is(th,td) :not(pre)>code{background:transparent}hr{border:0;border-top:1px solid var(--md-rule-strong);margin-block:10px}img{max-width:100%;height:auto;border-radius:4px}</style>
+</head><body>
+<h1>Decodable Reader — build spec</h1>
+<p>A local reading-practice app for one child. Generates fresh decodable stories so the text rotates instead of being memorised, and presents them in a UI built for sounding out rather than guessing.</p>
+<p>A working prototype of the UI is included as Appendix B. Treat it as the interaction reference, not the architecture — it is a single static file with five hardcoded stories. The build replaces the story source and adds progress tracking, keeping the reading surface close to what the prototype does.</p>
+<hr>
+<h2>1. The one requirement that matters</h2>
+<p><strong>Every content word in a generated story must be decodable using only the graphemes taught at or before the current step, plus an explicit list of heart words.</strong></p>
+<p>This is not a soft goal. A single untaught word — <code>beautiful</code>, <code>through</code>, <code>light</code> — breaks the entire premise, because the child then either guesses or is told the word, which is the habit the app exists to prevent. The parent cannot pre-read every story.</p>
+<p>An LLM asked to &quot;write a decodable story using short vowels&quot; will produce untaught patterns in roughly every generation. Assume this. The system must therefore be <strong>generate-then-verify</strong>, and text that fails verification is never displayed.</p>
+<p>Two layers:</p>
+<ol>
+<li><strong>Constrain generation.</strong> The model is given a word bank and instructed to use only words from it. This is arrangement, not invention.</li>
+<li><strong>Verify mechanically.</strong> A validator checks every word against the allowed set. Any failure rejects the whole story and regenerates. No partial acceptance, no auto-repair by substitution.</li>
+</ol>
+<p>If the validator and the generator ever disagree, the validator wins.</p>
+<hr>
+<h2>2. Data model</h2>
+<h3>Scope sequence</h3>
+<p>The phonics progression. Each step is cumulative — step 4 permits everything from steps 1–3.</p>
+<pre><code class="language-json">{
+  &#34;id&#34;: 4,
+  &#34;tag&#34;: &#34;Step 4&#34;,
+  &#34;name&#34;: &#34;blends&#34;,
+  &#34;teaches&#34;: [&#34;initial and final consonant blends&#34;],
+  &#34;graphemes_added&#34;: [],
+  &#34;structures_added&#34;: [&#34;CCVC&#34;, &#34;CVCC&#34;, &#34;CCVCC&#34;],
+  &#34;heart_words&#34;: [&#34;the&#34;, &#34;a&#34;, &#34;to&#34;],
+  &#34;word_bank&#34;: [&#34;stop&#34;, &#34;step&#34;, &#34;spin&#34;, &#34;slip&#34;, &#34;clap&#34;, &#34;flag&#34;, &#34;grab&#34;, &#34;...&#34;]
+}
+</code></pre>
+<p>Steps 1–5 as built in the prototype:</p>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Name</th>
+<th>Adds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>short a</td>
+<td><code>a</code> + common consonants, CVC only</td>
+</tr>
+<tr>
+<td>2</td>
+<td>all short vowels</td>
+<td><code>e i o u</code></td>
+</tr>
+<tr>
+<td>3</td>
+<td>digraphs</td>
+<td><code>sh ch th ck wh</code></td>
+</tr>
+<tr>
+<td>4</td>
+<td>blends</td>
+<td>consonant clusters, no new graphemes</td>
+</tr>
+<tr>
+<td>5</td>
+<td>magic e</td>
+<td>split digraphs <code>a_e i_e o_e u_e</code></td>
+</tr>
+</tbody>
+</table>
+<p>Extend with these — the child will need them within months, and the architecture should not have to change to accommodate them:</p>
+<table>
+<thead>
+<tr>
+<th>Step</th>
+<th>Name</th>
+<th>Adds</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>6</td>
+<td>vowel teams I</td>
+<td><code>ai ay ee ea</code></td>
+</tr>
+<tr>
+<td>7</td>
+<td>vowel teams II</td>
+<td><code>oa ow oo</code></td>
+</tr>
+<tr>
+<td>8</td>
+<td>r-controlled</td>
+<td><code>ar or er ir ur</code></td>
+</tr>
+<tr>
+<td>9</td>
+<td>diphthongs</td>
+<td><code>oi oy ou ow</code></td>
+</tr>
+<tr>
+<td>10</td>
+<td>common endings</td>
+<td><code>-ing -ed -s -es</code>, <code>-le</code> syllables</td>
+</tr>
+</tbody>
+</table>
+<p>Steps 6+ introduce ambiguity (<code>ea</code> says two things, <code>ow</code> says two things). The grapheme splitter must handle a grapheme mapping to multiple sounds — store the sound as part of the word-bank entry rather than deriving it, e.g. <code>{&quot;w&quot;: &quot;bread&quot;, &quot;sounds&quot;: [&quot;b&quot;, &quot;r&quot;, &quot;ea:short-e&quot;, &quot;d&quot;]}</code>.</p>
+<h3>Word bank</h3>
+<p>The word bank is the source of truth and the thing worth investing in. Per step, a curated list of words that are decodable at that step and meaningful to a six-year-old.</p>
+<p>Recommended: store each entry with its graphemes pre-segmented rather than deriving them at runtime. Derivation works for steps 1–5 (see the splitter in Appendix B) and breaks down after that. Pre-segmenting also gives you a free correctness check when adding words.</p>
+<pre><code class="language-json">{ &#34;w&#34;: &#34;ship&#34;, &#34;g&#34;: [[&#34;sh&#34;,&#34;d&#34;],[&#34;i&#34;,&#34;v&#34;],[&#34;p&#34;,&#34;c&#34;]], &#34;step&#34;: 3 }
+</code></pre>
+<p>Grapheme kinds: <code>c</code> consonant, <code>v</code> vowel, <code>d</code> digraph, <code>s</code> silent, <code>t</code> vowel team.</p>
+<h3>Story</h3>
+<pre><code class="language-json">{
+  &#34;id&#34;: &#34;s3-0f2a&#34;,
+  &#34;step&#34;: 3,
+  &#34;title&#34;: &#34;The fish and the ship&#34;,
+  &#34;lines&#34;: [&#34;Jack has a red ship.&#34;, &#34;...&#34;],
+  &#34;words_used&#34;: [&#34;jack&#34;, &#34;has&#34;, &#34;a&#34;, &#34;red&#34;, &#34;ship&#34;, &#34;...&#34;],
+  &#34;validated_at&#34;: &#34;2026-09-20T10:04:00Z&#34;,
+  &#34;generator&#34;: &#34;claude-sonnet-4-6&#34;
+}
+</code></pre>
+<h3>Progress</h3>
+<pre><code class="language-json">{
+  &#34;current_step&#34;: 2,
+  &#34;reads&#34;: { &#34;s2-91bc&#34;: 3 },
+  &#34;stumbles&#34;: { &#34;mud&#34;: 4, &#34;fox&#34;: 1 },
+  &#34;seen&#34;: [&#34;s2-91bc&#34;, &#34;s2-44de&#34;],
+  &#34;step_history&#34;: [{ &#34;step&#34;: 1, &#34;promoted_at&#34;: &#34;2026-09-14&#34; }]
+}
+</code></pre>
+<hr>
+<h2>3. Architecture</h2>
+<p>Keep the reading surface offline and instant. Generation happens ahead of time, not while the child waits.</p>
+<pre><code>/stories/
+  step-1.json          pool of validated stories
+  step-2.json
+  ...
+/data/
+  word-banks.json
+  scope-sequence.json
+  progress.json
+/scripts/
+  generate.js          calls the API, validates, appends to pool
+  validate.js          standalone validator, also used by generate
+index.html             the reading app — reads JSON, no network
+</code></pre>
+<p><code>npm run generate -- --step 3 --count 10</code> tops up a pool. The app itself never calls an API, never blocks on one, and works on a tablet in airplane mode.</p>
+<p>Anthropic API via <code>@anthropic-ai/sdk</code>, key from env. Model: <code>claude-sonnet-4-6</code> is ample for this.</p>
+<h3>Generation prompt shape</h3>
+<pre><code>You are writing a decodable story for a 6-year-old at phonics step {step} ({name}).
+
+You may use ONLY these words:
+{word_bank joined}
+
+Plus these heart words: {heart_words}
+
+Rules:
+- 6 to 9 sentences, 3 to 7 words each.
+- It must be an actual story: something happens, and it ends.
+- Proper names allowed only if decodable at this step (Sam, Jack, Jake).
+- No word outside the lists above. Not one.
+- Vary sentence openings; do not start every line with &#34;The&#34;.
+
+Return JSON: { &#34;title&#34;: string, &#34;lines&#34;: string[] }
+</code></pre>
+<p>Then: parse, validate, discard and retry on failure (cap at ~5 attempts, log the rejects — the reject log tells you which words the model keeps reaching for and is the best signal for what to add to the bank).</p>
+<h3>Validator</h3>
+<pre><code>for each line:
+  for each token:
+    word = strip punctuation, lowercase
+    if word is empty: continue
+    if word in heart_words[step]: ok
+    if word in union(word_bank[1..step]): ok
+    else: REJECT(word)
+</code></pre>
+<p>Deliberately dumb and deliberately strict. No stemming, no &quot;close enough&quot;. If <code>digs</code> should be legal, <code>digs</code> goes in the bank.</p>
+<p>Also reject on: fewer than 5 lines, any line over 9 words, duplicate lines, a line with no verb-bearing structure (cheap heuristic: reject if the story's distinct word count is under 60% of total word count — catches the degenerate repetitive output the model falls into when the bank is small).</p>
+<hr>
+<h2>4. The reading app</h2>
+<p>Appendix B is the reference. Port the interaction model; improve the plumbing.</p>
+<h3>Keep exactly as-is</h3>
+<ul>
+<li><strong>No images, anywhere.</strong> The absence is the design. Do not add illustrations, mascots, or decorative art to the reading surface.</li>
+<li><strong>Tap a word → sound breakdown.</strong> Graphemes split with separators, coloured by kind, plus <code>/sh/ /i/ /p/ → ship</code>. Silent <code>e</code> greyed with a one-line explanation.</li>
+<li><strong>Heart words visually distinct</strong> (purple in the prototype) and excluded from segmentation. Tapping one says &quot;just tell him the word&quot; rather than attempting a breakdown.</li>
+<li><strong>Warm-up strip</strong> of words above the story, tappable, same segmentation.</li>
+<li><strong>&quot;Colour the sounds&quot;</strong> toggle — off by default, so the default reading experience is plain black text.</li>
+<li><strong>&quot;One line at a time&quot;</strong> — dims all but the current line, arrow keys advance.</li>
+<li><strong>Repeated-reading dots</strong> — three, for the same story across three days.</li>
+<li><strong>Print</strong> — controls drop away, large type, clean page.</li>
+<li>Type: Andika (single-storey <code>a</code> and <code>g</code>, designed for literacy). Keep the fallback stack.</li>
+</ul>
+<h3>Add</h3>
+<ul>
+<li><strong>Stumble log.</strong> During reading, a long-press or a dedicated toggle marks a word the child struggled with. Marked words go into <code>progress.stumbles</code> and are injected into tomorrow's warm-up strip. This is the highest-value addition — it turns the app into something that adapts.</li>
+<li><strong>Story rotation.</strong> Serve an unseen story from the current step's pool. When the pool is exhausted, either regenerate or cycle oldest-first. Never serve the same story twice in a row, and never serve a story the child has read 3× until everything else has been through once.</li>
+<li><strong>Step promotion, manual.</strong> A parent control, not automatic. Show a readiness hint — &quot;8 stories at step 2, 3 reads each, stumbles down from 11 to 2&quot; — and let the adult decide. Automatic promotion on a metric will push him forward before he's solid, which is the main way these apps do harm.</li>
+<li><strong>Session view.</strong> After reading: which words were marked, how many, trend across the last five sessions. One screen, for the parent, at the end.</li>
+</ul>
+<h3>Do not add</h3>
+<ul>
+<li>Any &quot;what do you think happens next?&quot; or picture-cue prompt.</li>
+<li>Text-to-speech that pronounces a whole word on tap. It removes the exact effort the app exists to create. A parent-gated &quot;say it&quot; button after a failed attempt is acceptable; automatic is not.</li>
+<li>Timers, scores, streaks, confetti. A struggling reader does not need to be told he was slow.</li>
+<li>Difficulty auto-adjustment inside a step.</li>
+</ul>
+<hr>
+<h2>5. Acceptance</h2>
+<p>The build is done when:</p>
+<ol>
+<li>Generating 100 stories at each of steps 1–5 yields zero validator failures in the served pool, and the reject rate is logged.</li>
+<li>A deliberately poisoned story (inject <code>through</code> into a step-2 story JSON) is refused at load time, not just at generation time. Validate on read as well as on write.</li>
+<li>The app loads and runs with the network disabled.</li>
+<li>Every word in a served story can be tapped and produces a correct grapheme split. Spot-check the full vocabulary of one step by hand — the splitter is where silent bugs live.</li>
+<li>Print output of any story is legible at arm's length on paper.</li>
+<li><code>progress.json</code> survives a browser restart, and deleting it degrades gracefully to a fresh start rather than crashing.</li>
+</ol>
+<hr>
+<h2>6. Notes on the reader this is for</h2>
+<p>The intended reader is an early reader who is learning to decode. This is practice, not remediation — build accordingly. Start every new reader at step 1 regardless of level; the value of an easy first session is high and the cost is ten minutes.</p>
+<p>Expected use is about ten minutes a day, the child reading aloud to an adult, followed by about twenty minutes of the adult reading real books aloud, well above the child's own level. The app covers the first ten minutes only. Nothing in it should imply it covers the rest.</p>
+<hr>
+<h2>Appendix A — grapheme splitter (steps 1–5)</h2>
+<p>Works to step 5. Replace with a table-driven splitter, or pre-segmented bank entries, before adding vowel teams.</p>
+<pre><code class="language-js">var DIGRAPHS = [&#34;sh&#34;,&#34;ch&#34;,&#34;th&#34;,&#34;ck&#34;,&#34;wh&#34;,&#34;ph&#34;,&#34;ng&#34;,&#34;nk&#34;,&#34;qu&#34;];
+var VOWELS = &#34;aeiou&#34;;
+
+function graphemes(word){
+  var w = word.toLowerCase().replace(/[^a-z]/g,&#34;&#34;);
+  var silentE = false;
+  if (w.length &gt;= 4 &amp;&amp; w.charAt(w.length-1) === &#34;e&#34;){
+    var c = w.charAt(w.length-2), v = w.charAt(w.length-3);
+    if (VOWELS.indexOf(c) === -1 &amp;&amp; VOWELS.indexOf(v) !== -1) silentE = true;
+  }
+  var body = silentE ? w.slice(0,-1) : w;
+  var out = [], i = 0;
+  while (i &lt; body.length){
+    var pair = body.substr(i,2), hit = false;
+    for (var d = 0; d &lt; DIGRAPHS.length; d++){
+      if (pair === DIGRAPHS[d]){ out.push({t:pair,k:&#34;d&#34;}); i += 2; hit = true; break; }
+    }
+    if (hit) continue;
+    var ch = body.charAt(i);
+    out.push({t:ch, k: VOWELS.indexOf(ch) !== -1 ? &#34;v&#34; : &#34;c&#34;});
+    i++;
+  }
+  if (silentE) out.push({t:&#34;e&#34;, k:&#34;s&#34;});
+  return out;
+}
+</code></pre>
+<p>Known limits: <code>has</code> and <code>is</code> end in <code>/z/</code> and are reported as <code>/s/</code>. <code>ng</code>/<code>nk</code> are treated as digraphs everywhere, which is right for <code>sing</code> and wrong for <code>ungag</code>. Neither matters inside a curated bank; both matter if you ever run the splitter on arbitrary input.</p>
+<hr>
+<h2>Appendix B — UI reference implementation</h2>
+<p>Single self-contained file. Open it in a browser to see the target interaction. The five stories are hardcoded; everything else is the pattern to port.</p>
+<pre><code class="language-html">&lt;!DOCTYPE html&gt;
+&lt;html lang=&#34;en&#34;&gt;
+&lt;head&gt;
+&lt;meta charset=&#34;utf-8&#34;&gt;
+&lt;meta name=&#34;viewport&#34; content=&#34;width=device-width, initial-scale=1, viewport-fit=cover&#34;&gt;
+&lt;title&gt;Sound It Out — decodable practice&lt;/title&gt;
+&lt;link rel=&#34;preconnect&#34; href=&#34;https://fonts.googleapis.com&#34;&gt;
+&lt;link rel=&#34;preconnect&#34; href=&#34;https://fonts.gstatic.com&#34; crossorigin&gt;
+&lt;link href=&#34;https://fonts.googleapis.com/css2?family=Andika:wght@400;700&amp;family=Archivo:wght@400;500;600&amp;display=swap&#34; rel=&#34;stylesheet&#34;&gt;
+&lt;style&gt;
+:root{
+  --paper:#FCFCFA;
+  --ink:#16202B;
+  --ink-soft:#5A6773;
+  --rule:#E2E6E2;
+  --panel:#F3F5F2;
+  --vowel:#C8322B;
+  --digraph:#1F7A5C;
+  --heart:#7A4FB5;
+  --silent:#A8B2BA;
+  --focus:#16202B;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+:root:not([data-theme=&#34;light&#34;]){
+  @media (prefers-color-scheme: dark){
+    --paper:#131A20;
+    --ink:#EDF1F3;
+    --ink-soft:#97A4AE;
+    --rule:#26313A;
+    --panel:#1B242C;
+    --vowel:#FF8A7A;
+    --digraph:#5FD3A8;
+    --heart:#C3A2F0;
+    --silent:#5C6771;
+    --focus:#EDF1F3;
+  }
+}
+:root[data-theme=&#34;dark&#34;]{
+  --paper:#131A20;
+  --ink:#EDF1F3;
+  --ink-soft:#97A4AE;
+  --rule:#26313A;
+  --panel:#1B242C;
+  --vowel:#FF8A7A;
+  --digraph:#5FD3A8;
+  --heart:#C3A2F0;
+  --silent:#5C6771;
+  --focus:#EDF1F3;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:&#34;Archivo&#34;,-apple-system,BlinkMacSystemFont,&#34;Segoe UI&#34;,sans-serif;
+  font-size:16px;
+  line-height:1.5;
+  -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:860px;margin:0 auto;padding:20px 20px 72px}
+
+/* ---- masthead ---- */
+.masthead{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px;margin-bottom:18px}
+.masthead h1{
+  font-family:&#34;Andika&#34;,Verdana,Tahoma,sans-serif;
+  font-size:1.35rem;font-weight:700;margin:0;letter-spacing:-.01em;
+}
+.masthead p{margin:0;color:var(--ink-soft);font-size:.86rem}
+.theme-btn{
+  margin-left:auto;background:none;border:1px solid var(--rule);color:var(--ink-soft);
+  border-radius:999px;padding:5px 12px;font:inherit;font-size:.78rem;cursor:pointer;
+}
+.theme-btn:hover{border-color:var(--ink-soft)}
+
+/* ---- step strip ---- */
+.steps{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:22px;-webkit-overflow-scrolling:touch}
+.step-btn{
+  flex:0 0 auto;background:none;border:1px solid var(--rule);border-radius:4px;
+  padding:9px 13px;font:inherit;font-size:.8rem;color:var(--ink-soft);cursor:pointer;
+  text-align:left;line-height:1.3;
+}
+.step-btn b{display:block;font-family:&#34;Andika&#34;,Verdana,sans-serif;font-size:.95rem;color:var(--ink);font-weight:700}
+.step-btn:hover{border-color:var(--ink-soft)}
+.step-btn[aria-selected=&#34;true&#34;]{border-color:var(--ink);background:var(--panel)}
+
+/* ---- prep panels ---- */
+.prep{display:grid;grid-template-columns:1fr;gap:16px;margin-bottom:26px}
+@media (min-width:640px){.prep{grid-template-columns:1.6fr 1fr}}
+.prep section{background:var(--panel);border-radius:6px;padding:14px 15px}
+.prep h2{margin:0 0 3px;font-size:.88rem;font-weight:600}
+.prep .note{margin:0 0 11px;font-size:.78rem;color:var(--ink-soft);line-height:1.4}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{
+  font-family:&#34;Andika&#34;,Verdana,sans-serif;font-size:1.22rem;
+  background:var(--paper);border:1px solid var(--rule);border-radius:4px;
+  padding:5px 11px;cursor:pointer;color:var(--ink);
+}
+.chip:hover{border-color:var(--ink-soft)}
+.chip.heart{border-style:dashed;color:var(--heart);cursor:default}
+.chip.heart::after{content:&#34;♥&#34;;font-size:.62em;vertical-align:super;margin-left:3px;font-family:&#34;Archivo&#34;,sans-serif}
+
+/* ---- sound-out tray ---- */
+.tray{
+  border:1px solid var(--rule);border-left:3px solid var(--ink);border-radius:4px;
+  padding:14px 16px;margin-bottom:26px;min-height:74px;
+  display:flex;flex-direction:column;justify-content:center;
+}
+.tray .empty{margin:0;color:var(--ink-soft);font-size:.84rem}
+.tray-graph{font-family:&#34;Andika&#34;,Verdana,sans-serif;font-size:2.1rem;line-height:1.2;letter-spacing:.02em}
+.tray-graph .g{display:inline-block;padding:0 1px}
+.tray-graph .sep{color:var(--silent);padding:0 6px;font-size:.7em;vertical-align:middle}
+.tray-say{margin:7px 0 0;font-size:.85rem;color:var(--ink-soft)}
+.tray-say strong{color:var(--ink);font-weight:600}
+
+/* grapheme colours */
+.v{color:var(--vowel)}
+.d{color:var(--digraph)}
+.s{color:var(--silent)}
+
+/* ---- story ---- */
+.story{margin-bottom:8px}
+.line{
+  font-family:&#34;Andika&#34;,Verdana,Tahoma,sans-serif;
+  font-size:clamp(1.55rem,5.4vw,2.35rem);
+  line-height:1.62;
+  margin:0 0 .35em;
+  letter-spacing:.005em;
+  transition:opacity .18s ease;
+}
+.line:last-child{margin-bottom:0}
+.story.paced .line{opacity:.15}
+.story.paced .line.on{opacity:1}
+.w{cursor:pointer;border-radius:3px;padding:0 1px}
+.w:hover{background:var(--panel)}
+.w.picked{box-shadow:inset 0 -3px 0 var(--focus)}
+.w.heartword{color:var(--heart)}
+.story:not(.marked) .v,
+.story:not(.marked) .d,
+.story:not(.marked) .s{color:inherit}
+
+/* ---- controls ---- */
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:22px 0 0;padding-top:16px;border-top:1px solid var(--rule)}
+.ctl{
+  background:none;border:1px solid var(--rule);border-radius:4px;
+  padding:7px 12px;font:inherit;font-size:.8rem;color:var(--ink-soft);cursor:pointer;
+}
+.ctl:hover{border-color:var(--ink-soft)}
+.ctl[aria-pressed=&#34;true&#34;]{border-color:var(--ink);color:var(--ink);background:var(--panel)}
+.pacer{display:none;gap:6px;align-items:center;margin-left:2px}
+.pacer.on{display:flex}
+.pacer button{background:none;border:1px solid var(--rule);border-radius:4px;width:32px;height:32px;font:inherit;color:var(--ink);cursor:pointer}
+.pacer button:hover{border-color:var(--ink-soft)}
+.pacer span{font-size:.78rem;color:var(--ink-soft);min-width:52px}
+.reps{display:flex;align-items:center;gap:8px;margin-left:auto}
+.reps span{font-size:.78rem;color:var(--ink-soft)}
+.dots{display:flex;gap:5px}
+.dot{width:15px;height:15px;border-radius:50%;border:1.5px solid var(--rule);background:none;cursor:pointer;padding:0}
+.dot[data-on=&#34;1&#34;]{background:var(--ink);border-color:var(--ink)}
+
+/* ---- grown-up notes ---- */
+details.notes{margin-top:34px;border-top:1px solid var(--rule);padding-top:16px}
+details.notes summary{cursor:pointer;font-size:.86rem;font-weight:600;list-style:none}
+details.notes summary::-webkit-details-marker{display:none}
+details.notes summary::before{content:&#34;+ &#34;;color:var(--ink-soft)}
+details.notes[open] summary::before{content:&#34;– &#34;}
+details.notes .body{max-width:62ch;font-size:.88rem;color:var(--ink-soft);line-height:1.62}
+details.notes h3{font-size:.86rem;color:var(--ink);margin:18px 0 5px}
+details.notes ol,details.notes ul{padding-left:19px;margin:6px 0}
+details.notes li{margin-bottom:5px}
+.key{display:flex;flex-wrap:wrap;gap:14px;margin:10px 0 0;font-size:.82rem}
+.key i{font-style:normal;font-family:&#34;Andika&#34;,Verdana,sans-serif;font-weight:700;margin-right:5px;font-size:1.05em}
+
+*:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+@media print{
+  :root{--paper:#fff;--ink:#000;--rule:#ccc;--panel:#fff}
+  .masthead p,.theme-btn,.steps,.controls,details.notes,.tray{display:none}
+  .prep section{border:1px solid #ccc}
+  .line{font-size:26pt;opacity:1!important}
+  .story.paced .line{opacity:1!important}
+}
+&lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+&lt;div class=&#34;wrap&#34;&gt;
+
+  &lt;header class=&#34;masthead&#34;&gt;
+    &lt;h1&gt;Sound It Out&lt;/h1&gt;
+    &lt;p&gt;Decodable practice — every word can be sounded out.&lt;/p&gt;
+    &lt;button class=&#34;theme-btn&#34; id=&#34;themeBtn&#34; type=&#34;button&#34;&gt;Dark&lt;/button&gt;
+  &lt;/header&gt;
+
+  &lt;div class=&#34;steps&#34; id=&#34;steps&#34; role=&#34;tablist&#34; aria-label=&#34;Phonics steps&#34;&gt;&lt;/div&gt;
+
+  &lt;div class=&#34;prep&#34;&gt;
+    &lt;section&gt;
+      &lt;h2&gt;Warm up&lt;/h2&gt;
+      &lt;p class=&#34;note&#34;&gt;Sound these out before opening the story. Tap a word to break it into sounds.&lt;/p&gt;
+      &lt;div class=&#34;chips&#34; id=&#34;warmup&#34;&gt;&lt;/div&gt;
+    &lt;/section&gt;
+    &lt;section&gt;
+      &lt;h2&gt;Know by heart&lt;/h2&gt;
+      &lt;p class=&#34;note&#34;&gt;These break the rules. Tell him the word — don&#39;t make him sound it out.&lt;/p&gt;
+      &lt;div class=&#34;chips&#34; id=&#34;heart&#34;&gt;&lt;/div&gt;
+    &lt;/section&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&#34;tray&#34; id=&#34;tray&#34; aria-live=&#34;polite&#34;&gt;
+    &lt;p class=&#34;empty&#34;&gt;Tap any word above or in the story to see its sounds.&lt;/p&gt;
+  &lt;/div&gt;
+
+  &lt;div class=&#34;story&#34; id=&#34;story&#34;&gt;&lt;/div&gt;
+
+  &lt;div class=&#34;controls&#34;&gt;
+    &lt;button class=&#34;ctl&#34; id=&#34;markBtn&#34; type=&#34;button&#34; aria-pressed=&#34;false&#34;&gt;Colour the sounds&lt;/button&gt;
+    &lt;button class=&#34;ctl&#34; id=&#34;paceBtn&#34; type=&#34;button&#34; aria-pressed=&#34;false&#34;&gt;One line at a time&lt;/button&gt;
+    &lt;div class=&#34;pacer&#34; id=&#34;pacer&#34;&gt;
+      &lt;button type=&#34;button&#34; id=&#34;prevLine&#34; aria-label=&#34;Previous line&#34;&gt;&amp;#8592;&lt;/button&gt;
+      &lt;button type=&#34;button&#34; id=&#34;nextLine&#34; aria-label=&#34;Next line&#34;&gt;&amp;#8594;&lt;/button&gt;
+      &lt;span id=&#34;lineCount&#34;&gt;&lt;/span&gt;
+    &lt;/div&gt;
+    &lt;button class=&#34;ctl&#34; id=&#34;printBtn&#34; type=&#34;button&#34;&gt;Print&lt;/button&gt;
+    &lt;div class=&#34;reps&#34;&gt;
+      &lt;span&gt;Read through&lt;/span&gt;
+      &lt;div class=&#34;dots&#34; id=&#34;dots&#34;&gt;&lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+
+  &lt;details class=&#34;notes&#34;&gt;
+    &lt;summary&gt;How to run this&lt;/summary&gt;
+    &lt;div class=&#34;body&#34;&gt;
+      &lt;p&gt;Ten minutes, and he does the reading aloud — not you. The stories are dull on purpose; the job here is decoding practice, and the real books come afterwards when you read to him.&lt;/p&gt;
+
+      &lt;h3&gt;The routine&lt;/h3&gt;
+      &lt;ol&gt;
+        &lt;li&gt;Warm up on the word list until each one is quick.&lt;/li&gt;
+        &lt;li&gt;Read the &#34;know by heart&#34; words &lt;em&gt;to&lt;/em&gt; him, twice.&lt;/li&gt;
+        &lt;li&gt;He reads the story aloud. If he stalls on a word for more than about three seconds, point at the first letter and say the sound — don&#39;t say the word.&lt;/li&gt;
+        &lt;li&gt;Read the same story again tomorrow and the day after. Tick a dot each time. The third pass is where fluency shows up, and where he hears himself sound like a reader.&lt;/li&gt;
+      &lt;/ol&gt;
+
+      &lt;h3&gt;What not to do&lt;/h3&gt;
+      &lt;ul&gt;
+        &lt;li&gt;Don&#39;t say &#34;what would make sense there?&#34; or &#34;look at the picture&#34; — there are no pictures here for exactly that reason.&lt;/li&gt;
+        &lt;li&gt;Don&#39;t move to the next step until the current one is comfortable. Repeating an easy step costs nothing; skipping ahead costs weeks.&lt;/li&gt;
+        &lt;li&gt;Don&#39;t correct every slip mid-sentence. Let him finish the line, then go back to the one word.&lt;/li&gt;
+      &lt;/ul&gt;
+
+      &lt;h3&gt;Colour key&lt;/h3&gt;
+      &lt;div class=&#34;key&#34;&gt;
+        &lt;span&gt;&lt;i class=&#34;v&#34;&gt;a&lt;/i&gt;vowel&lt;/span&gt;
+        &lt;span&gt;&lt;i class=&#34;d&#34;&gt;sh&lt;/i&gt;two letters, one sound&lt;/span&gt;
+        &lt;span&gt;&lt;i class=&#34;s&#34;&gt;e&lt;/i&gt;silent&lt;/span&gt;
+        &lt;span&gt;&lt;i class=&#34;heartword&#34; style=&#34;color:var(--heart)&#34;&gt;the&lt;/i&gt;know by heart&lt;/span&gt;
+      &lt;/div&gt;
+      &lt;p style=&#34;margin-top:14px&#34;&gt;Each step keeps everything from the steps before it, so Step 4 still uses short vowels and digraphs. Once Step 5 is solid, the next patterns to teach are vowel teams — &lt;b&gt;ai&lt;/b&gt;, &lt;b&gt;ea&lt;/b&gt;, &lt;b&gt;oa&lt;/b&gt;, &lt;b&gt;ee&lt;/b&gt; — and that&#39;s roughly where BR-range reading crosses into 0L and above.&lt;/p&gt;
+    &lt;/div&gt;
+  &lt;/details&gt;
+
+&lt;/div&gt;
+
+&lt;script&gt;
+(function(){
+&#34;use strict&#34;;
+
+var HEART = [&#34;the&#34;,&#34;a&#34;,&#34;to&#34;,&#34;he&#34;,&#34;was&#34;,&#34;i&#34;,&#34;of&#34;,&#34;you&#34;,&#34;said&#34;];
+
+var STEPS = [
+  {
+    tag:&#34;Step 1&#34;, name:&#34;short a&#34;,
+    warmup:[&#34;sat&#34;,&#34;cat&#34;,&#34;fat&#34;,&#34;bat&#34;,&#34;mat&#34;,&#34;rat&#34;,&#34;ran&#34;,&#34;man&#34;,&#34;bag&#34;,&#34;tag&#34;,&#34;sad&#34;,&#34;had&#34;,&#34;ham&#34;,&#34;jam&#34;],
+    heart:[&#34;the&#34;,&#34;a&#34;,&#34;is&#34;,&#34;has&#34;],
+    lines:[
+      &#34;Sam has a cat.&#34;,
+      &#34;The cat is fat.&#34;,
+      &#34;The cat sat.&#34;,
+      &#34;Sam has a bat.&#34;,
+      &#34;The cat ran at the bat.&#34;,
+      &#34;Sam ran. The cat ran.&#34;,
+      &#34;The cat has the bat!&#34;,
+      &#34;Sam is sad.&#34;
+    ]
+  },
+  {
+    tag:&#34;Step 2&#34;, name:&#34;all short vowels&#34;,
+    warmup:[&#34;pig&#34;,&#34;dig&#34;,&#34;hot&#34;,&#34;pot&#34;,&#34;dog&#34;,&#34;sun&#34;,&#34;run&#34;,&#34;bug&#34;,&#34;hug&#34;,&#34;red&#34;,&#34;bed&#34;,&#34;leg&#34;,&#34;sit&#34;,&#34;hit&#34;,&#34;cup&#34;,&#34;cut&#34;,&#34;mud&#34;,&#34;fox&#34;],
+    heart:[&#34;the&#34;,&#34;a&#34;,&#34;to&#34;,&#34;and&#34;],
+    lines:[
+      &#34;The big pig sat in the mud.&#34;,
+      &#34;A red fox ran up to him.&#34;,
+      &#34;The fox had a hot bun.&#34;,
+      &#34;The pig got up.&#34;,
+      &#34;The fox cut the bun.&#34;,
+      &#34;The fox and the pig had fun in the sun.&#34;
+    ]
+  },
+  {
+    tag:&#34;Step 3&#34;, name:&#34;sh ch th ck&#34;,
+    warmup:[&#34;ship&#34;,&#34;shop&#34;,&#34;shut&#34;,&#34;fish&#34;,&#34;dish&#34;,&#34;chin&#34;,&#34;chip&#34;,&#34;chop&#34;,&#34;much&#34;,&#34;this&#34;,&#34;that&#34;,&#34;then&#34;,&#34;with&#34;,&#34;back&#34;,&#34;duck&#34;,&#34;rock&#34;,&#34;sock&#34;,&#34;kick&#34;],
+    heart:[&#34;the&#34;,&#34;a&#34;,&#34;he&#34;,&#34;was&#34;],
+    lines:[
+      &#34;Jack has a red ship.&#34;,
+      &#34;He set it in a big tub.&#34;,
+      &#34;A fat fish is in that tub.&#34;,
+      &#34;The fish hit the ship.&#34;,
+      &#34;Then the ship got a chip in it.&#34;,
+      &#34;Jack was sad.&#34;,
+      &#34;He set the ship on a rock.&#34;,
+      &#34;The fish has the tub!&#34;
+    ]
+  },
+  {
+    tag:&#34;Step 4&#34;, name:&#34;blends&#34;,
+    warmup:[&#34;stop&#34;,&#34;step&#34;,&#34;spin&#34;,&#34;slip&#34;,&#34;clap&#34;,&#34;flag&#34;,&#34;grab&#34;,&#34;drum&#34;,&#34;trip&#34;,&#34;crab&#34;,&#34;frog&#34;,&#34;plan&#34;,&#34;snap&#34;,&#34;hand&#34;,&#34;jump&#34;,&#34;fast&#34;,&#34;best&#34;,&#34;milk&#34;],
+    heart:[&#34;the&#34;,&#34;a&#34;],
+    lines:[
+      &#34;A crab sits on the wet sand.&#34;,
+      &#34;The crab digs and digs.&#34;,
+      &#34;A big frog jumps in.&#34;,
+      &#34;The frog grabs a clam.&#34;,
+      &#34;Stop! Drop that clam!&#34;,
+      &#34;The frog drops the clam in the sand.&#34;,
+      &#34;The crab grabs it and runs.&#34;,
+      &#34;The frog is not glad.&#34;
+    ]
+  },
+  {
+    tag:&#34;Step 5&#34;, name:&#34;magic e&#34;,
+    warmup:[&#34;make&#34;,&#34;cake&#34;,&#34;lake&#34;,&#34;ride&#34;,&#34;bike&#34;,&#34;like&#34;,&#34;time&#34;,&#34;nine&#34;,&#34;home&#34;,&#34;note&#34;,&#34;rope&#34;,&#34;safe&#34;,&#34;cute&#34;,&#34;mane&#34;,&#34;pine&#34;,&#34;hope&#34;],
+    heart:[&#34;the&#34;,&#34;a&#34;,&#34;he&#34;,&#34;to&#34;],
+    lines:[
+      &#34;Jake has a red bike.&#34;,
+      &#34;He can ride it to the lake.&#34;,
+      &#34;At the lake, Jake met a snake.&#34;,
+      &#34;The snake is on a rock.&#34;,
+      &#34;Jake did not like that.&#34;,
+      &#34;He rode home fast.&#34;,
+      &#34;Jake is safe at home.&#34;
+    ]
+  }
+];
+
+/* ---- split a word into graphemes ---- */
+var DIGRAPHS = [&#34;sh&#34;,&#34;ch&#34;,&#34;th&#34;,&#34;ck&#34;,&#34;wh&#34;,&#34;ph&#34;,&#34;ng&#34;,&#34;nk&#34;,&#34;qu&#34;];
+var VOWELS = &#34;aeiou&#34;;
+
+function graphemes(word){
+  var w = word.toLowerCase().replace(/[^a-z]/g,&#34;&#34;);
+  var silentE = false;
+  // magic e: ends in e, preceded by consonant, preceded by a vowel, word &gt;= 4 letters
+  if (w.length &gt;= 4 &amp;&amp; w.charAt(w.length-1) === &#34;e&#34;){
+    var c = w.charAt(w.length-2), v = w.charAt(w.length-3);
+    if (VOWELS.indexOf(c) === -1 &amp;&amp; VOWELS.indexOf(v) !== -1) silentE = true;
+  }
+  var body = silentE ? w.slice(0, -1) : w;
+  var out = [], i = 0;
+  while (i &lt; body.length){
+    var pair = body.substr(i,2), hit = false;
+    for (var d = 0; d &lt; DIGRAPHS.length; d++){
+      if (pair === DIGRAPHS[d]){ out.push({t:pair, k:&#34;d&#34;}); i += 2; hit = true; break; }
+    }
+    if (hit) continue;
+    var ch = body.charAt(i);
+    out.push({t:ch, k: VOWELS.indexOf(ch) !== -1 ? &#34;v&#34; : &#34;c&#34;});
+    i++;
+  }
+  if (silentE) out.push({t:&#34;e&#34;, k:&#34;s&#34;});
+  return out;
+}
+
+function isHeart(word, stepHeart){
+  var w = word.toLowerCase().replace(/[^a-z]/g,&#34;&#34;);
+  if (!w) return false;
+  if (HEART.indexOf(w) !== -1) return true;
+  return stepHeart.some(function(h){ return h.toLowerCase() === w; }) &amp;&amp; HEART.indexOf(w) !== -1;
+}
+
+/* ---- state ---- */
+var current = 0;
+var paced = false, marked = false, lineIdx = 0;
+
+var elSteps  = document.getElementById(&#34;steps&#34;);
+var elWarm   = document.getElementById(&#34;warmup&#34;);
+var elHeart  = document.getElementById(&#34;heart&#34;);
+var elTray   = document.getElementById(&#34;tray&#34;);
+var elStory  = document.getElementById(&#34;story&#34;);
+var elDots   = document.getElementById(&#34;dots&#34;);
+var elPacer  = document.getElementById(&#34;pacer&#34;);
+var elCount  = document.getElementById(&#34;lineCount&#34;);
+
+/* ---- storage (best effort) ---- */
+function repsGet(i){
+  try {
+    var v = window.localStorage.getItem(&#34;soundout:reps:&#34; + i);
+    return v ? parseInt(v,10) || 0 : 0;
+  } catch(e){ return 0; }
+}
+function repsSet(i,n){
+  try { window.localStorage.setItem(&#34;soundout:reps:&#34; + i, String(n)); } catch(e){}
+}
+
+/* ---- tray ---- */
+function showSounds(word){
+  var clean = word.replace(/[^A-Za-z]/g,&#34;&#34;);
+  if (!clean) return;
+  var heartWord = HEART.indexOf(clean.toLowerCase()) !== -1;
+  var html = &#34;&#34;;
+  if (heartWord){
+    html = &#39;&lt;div class=&#34;tray-graph&#34;&gt;&lt;span class=&#34;g&#34; style=&#34;color:var(--heart)&#34;&gt;&#39; + clean + &#39;&lt;/span&gt;&lt;/div&gt;&#39; +
+           &#39;&lt;p class=&#34;tray-say&#34;&gt;A heart word. Just tell him: &lt;strong&gt;&#39; + clean.toLowerCase() + &#39;&lt;/strong&gt;. It doesn\&#39;t follow the rules yet.&lt;/p&gt;&#39;;
+  } else {
+    var gs = graphemes(clean), parts = [], says = [];
+    for (var i = 0; i &lt; gs.length; i++){
+      parts.push(&#39;&lt;span class=&#34;g &#39; + gs[i].k + &#39;&#34;&gt;&#39; + gs[i].t + &#39;&lt;/span&gt;&#39;);
+      if (gs[i].k !== &#34;s&#34;) says.push(&#34;/&#34; + gs[i].t + &#34;/&#34;);
+    }
+    html = &#39;&lt;div class=&#34;tray-graph&#34;&gt;&#39; + parts.join(&#39;&lt;span class=&#34;sep&#34;&gt;&amp;#183;&lt;/span&gt;&#39;) + &#39;&lt;/div&gt;&#39; +
+           &#39;&lt;p class=&#34;tray-say&#34;&gt;&#39; + says.join(&#34; &#34;) + &#39; &amp;rarr; &lt;strong&gt;&#39; + clean.toLowerCase() + &#39;&lt;/strong&gt;&#39; +
+           (gs[gs.length-1].k === &#34;s&#34; ? &#39; &amp;nbsp;· the &lt;b&gt;e&lt;/b&gt; is silent — it makes the vowel say its name.&#39; : &#39;&#39;) +
+           &#39;&lt;/p&gt;&#39;;
+  }
+  elTray.innerHTML = html;
+}
+
+function clearPicked(){
+  var ps = document.querySelectorAll(&#34;.w.picked, .chip.picked&#34;);
+  for (var i = 0; i &lt; ps.length; i++) ps[i].classList.remove(&#34;picked&#34;);
+}
+
+/* ---- render ---- */
+function renderChips(){
+  var s = STEPS[current];
+  elWarm.innerHTML = &#34;&#34;;
+  s.warmup.forEach(function(w){
+    var b = document.createElement(&#34;button&#34;);
+    b.className = &#34;chip&#34;; b.type = &#34;button&#34;; b.textContent = w;
+    b.addEventListener(&#34;click&#34;, function(){ clearPicked(); b.classList.add(&#34;picked&#34;); showSounds(w); });
+    elWarm.appendChild(b);
+  });
+  elHeart.innerHTML = &#34;&#34;;
+  s.heart.forEach(function(w){
+    var b = document.createElement(&#34;span&#34;);
+    b.className = &#34;chip heart&#34;; b.textContent = w;
+    elHeart.appendChild(b);
+  });
+}
+
+function renderStory(){
+  var s = STEPS[current];
+  elStory.innerHTML = &#34;&#34;;
+  s.lines.forEach(function(line, li){
+    var p = document.createElement(&#34;p&#34;);
+    p.className = &#34;line&#34;;
+    if (li === 0) p.classList.add(&#34;on&#34;);
+    line.split(&#34; &#34;).forEach(function(tok, ti){
+      if (ti) p.appendChild(document.createTextNode(&#34; &#34;));
+      var core = tok.replace(/[^A-Za-z]/g,&#34;&#34;);
+      if (!core){ p.appendChild(document.createTextNode(tok)); return; }
+      var lead = tok.slice(0, tok.indexOf(core.charAt(0)));
+      var tail = tok.slice(tok.indexOf(core.charAt(0)) + core.length);
+      if (lead) p.appendChild(document.createTextNode(lead));
+      var span = document.createElement(&#34;span&#34;);
+      span.className = &#34;w&#34;;
+      if (HEART.indexOf(core.toLowerCase()) !== -1){
+        span.classList.add(&#34;heartword&#34;);
+        span.textContent = core;
+      } else {
+        var gs = graphemes(core), used = 0;
+        gs.forEach(function(g){
+          var seg = document.createElement(&#34;span&#34;);
+          seg.className = g.k;
+          seg.textContent = core.substr(used, g.t.length);
+          used += g.t.length;
+          span.appendChild(seg);
+        });
+      }
+      span.addEventListener(&#34;click&#34;, function(){ clearPicked(); span.classList.add(&#34;picked&#34;); showSounds(core); });
+      p.appendChild(span);
+      if (tail) p.appendChild(document.createTextNode(tail));
+    });
+    elStory.appendChild(p);
+  });
+  lineIdx = 0;
+  applyPacing();
+}
+
+function renderDots(){
+  var n = repsGet(current);
+  elDots.innerHTML = &#34;&#34;;
+  for (var i = 0; i &lt; 3; i++){
+    (function(k){
+      var d = document.createElement(&#34;button&#34;);
+      d.className = &#34;dot&#34;; d.type = &#34;button&#34;;
+      d.setAttribute(&#34;data-on&#34;, k &lt; n ? &#34;1&#34; : &#34;0&#34;);
+      d.setAttribute(&#34;aria-label&#34;, &#34;Read-through &#34; + (k+1));
+      d.addEventListener(&#34;click&#34;, function(){
+        var cur = repsGet(current);
+        repsSet(current, cur === k + 1 ? k : k + 1);
+        renderDots();
+      });
+      elDots.appendChild(d);
+    })(i);
+  }
+}
+
+function applyPacing(){
+  var lines = elStory.querySelectorAll(&#34;.line&#34;);
+  elStory.classList.toggle(&#34;paced&#34;, paced);
+  elPacer.classList.toggle(&#34;on&#34;, paced);
+  for (var i = 0; i &lt; lines.length; i++) lines[i].classList.toggle(&#34;on&#34;, i === lineIdx);
+  elCount.textContent = paced ? (lineIdx + 1) + &#34; of &#34; + lines.length : &#34;&#34;;
+}
+
+function move(delta){
+  var total = STEPS[current].lines.length;
+  lineIdx = Math.max(0, Math.min(total - 1, lineIdx + delta));
+  applyPacing();
+}
+
+function select(i){
+  current = i;
+  var btns = elSteps.querySelectorAll(&#34;.step-btn&#34;);
+  for (var k = 0; k &lt; btns.length; k++) btns[k].setAttribute(&#34;aria-selected&#34;, k === i ? &#34;true&#34; : &#34;false&#34;);
+  elTray.innerHTML = &#39;&lt;p class=&#34;empty&#34;&gt;Tap any word above or in the story to see its sounds.&lt;/p&gt;&#39;;
+  renderChips(); renderStory(); renderDots();
+}
+
+/* ---- build step strip ---- */
+STEPS.forEach(function(s, i){
+  var b = document.createElement(&#34;button&#34;);
+  b.className = &#34;step-btn&#34;; b.type = &#34;button&#34;; b.setAttribute(&#34;role&#34;,&#34;tab&#34;);
+  b.innerHTML = &#34;&lt;b&gt;&#34; + s.name + &#34;&lt;/b&gt;&#34; + s.tag;
+  b.addEventListener(&#34;click&#34;, function(){ select(i); });
+  elSteps.appendChild(b);
+});
+
+/* ---- controls ---- */
+document.getElementById(&#34;markBtn&#34;).addEventListener(&#34;click&#34;, function(){
+  marked = !marked;
+  elStory.classList.toggle(&#34;marked&#34;, marked);
+  this.setAttribute(&#34;aria-pressed&#34;, marked ? &#34;true&#34; : &#34;false&#34;);
+});
+document.getElementById(&#34;paceBtn&#34;).addEventListener(&#34;click&#34;, function(){
+  paced = !paced; lineIdx = 0;
+  this.setAttribute(&#34;aria-pressed&#34;, paced ? &#34;true&#34; : &#34;false&#34;);
+  applyPacing();
+});
+document.getElementById(&#34;prevLine&#34;).addEventListener(&#34;click&#34;, function(){ move(-1); });
+document.getElementById(&#34;nextLine&#34;).addEventListener(&#34;click&#34;, function(){ move(1); });
+document.getElementById(&#34;printBtn&#34;).addEventListener(&#34;click&#34;, function(){ window.print(); });
+
+document.addEventListener(&#34;keydown&#34;, function(e){
+  if (!paced) return;
+  if (e.key === &#34;ArrowRight&#34; || e.key === &#34; &#34;){ e.preventDefault(); move(1); }
+  if (e.key === &#34;ArrowLeft&#34;){ e.preventDefault(); move(-1); }
+});
+
+var themeBtn = document.getElementById(&#34;themeBtn&#34;);
+themeBtn.addEventListener(&#34;click&#34;, function(){
+  var dark = document.documentElement.getAttribute(&#34;data-theme&#34;) === &#34;dark&#34;;
+  document.documentElement.setAttribute(&#34;data-theme&#34;, dark ? &#34;light&#34; : &#34;dark&#34;);
+  themeBtn.textContent = dark ? &#34;Dark&#34; : &#34;Light&#34;;
+});
+
+select(0);
+})();
+&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+</code></pre>
+
+</body></html>

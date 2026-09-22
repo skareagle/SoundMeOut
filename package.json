@@ -1,0 +1,21 @@
+{
+  "name": "decodable-reader",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "description": "Local decodable-story reading practice app, served on the home network.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test \"test/*.test.js\"",
+    "generate": "node scripts/generate.js",
+    "validate": "node scripts/validate.js",
+    "check-bank": "node scripts/check-bank.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.127.0"
+  }
+}

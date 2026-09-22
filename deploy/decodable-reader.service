@@ -1,0 +1,28 @@
+# systemd *user* unit (template) for the Decodable Reader.
+# The two placeholders below, /path/to/decodable-reader and /path/to/node,
+# are filled in on install (comment lines are left as they are). From the
+# repository root:
+#   mkdir -p ~/.config/systemd/user
+#   sed -e '/^#/b' -e "s|/path/to/decodable-reader|$PWD|g" -e "s|/path/to/node|$(command -v node)|g" deploy/decodable-reader.service > ~/.config/systemd/user/decodable-reader.service
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now decodable-reader
+#   loginctl enable-linger "$USER"   # keep it running when you're logged out
+# If you move the repo or Node, run the sed line again, then daemon-reload and
+# systemctl --user restart decodable-reader. See README.md.
+
+[Unit]
+Description=Decodable Reader (reading-practice app on the home network)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/path/to/decodable-reader
+ExecStart=/path/to/node /path/to/decodable-reader/server.js
+Environment=PORT=8080
+Environment=HOST=0.0.0.0
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

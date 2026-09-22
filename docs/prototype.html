@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sound It Out — decodable practice</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Andika:wght@400;700&family=Archivo:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#FCFCFA;
+  --ink:#16202B;
+  --ink-soft:#5A6773;
+  --rule:#E2E6E2;
+  --panel:#F3F5F2;
+  --vowel:#C8322B;
+  --digraph:#1F7A5C;
+  --heart:#7A4FB5;
+  --silent:#A8B2BA;
+  --focus:#16202B;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+:root:not([data-theme="light"]){
+  @media (prefers-color-scheme: dark){
+    --paper:#131A20;
+    --ink:#EDF1F3;
+    --ink-soft:#97A4AE;
+    --rule:#26313A;
+    --panel:#1B242C;
+    --vowel:#FF8A7A;
+    --digraph:#5FD3A8;
+    --heart:#C3A2F0;
+    --silent:#5C6771;
+    --focus:#EDF1F3;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#131A20;
+  --ink:#EDF1F3;
+  --ink-soft:#97A4AE;
+  --rule:#26313A;
+  --panel:#1B242C;
+  --vowel:#FF8A7A;
+  --digraph:#5FD3A8;
+  --heart:#C3A2F0;
+  --silent:#5C6771;
+  --focus:#EDF1F3;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:"Archivo",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-size:16px;
+  line-height:1.5;
+  -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:860px;margin:0 auto;padding:20px 20px 72px}
+
+/* ---- masthead ---- */
+.masthead{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px;margin-bottom:18px}
+.masthead h1{
+  font-family:"Andika",Verdana,Tahoma,sans-serif;
+  font-size:1.35rem;font-weight:700;margin:0;letter-spacing:-.01em;
+}
+.masthead p{margin:0;color:var(--ink-soft);font-size:.86rem}
+.theme-btn{
+  margin-left:auto;background:none;border:1px solid var(--rule);color:var(--ink-soft);
+  border-radius:999px;padding:5px 12px;font:inherit;font-size:.78rem;cursor:pointer;
+}
+.theme-btn:hover{border-color:var(--ink-soft)}
+
+/* ---- step strip ---- */
+.steps{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:22px;-webkit-overflow-scrolling:touch}
+.step-btn{
+  flex:0 0 auto;background:none;border:1px solid var(--rule);border-radius:4px;
+  padding:9px 13px;font:inherit;font-size:.8rem;color:var(--ink-soft);cursor:pointer;
+  text-align:left;line-height:1.3;
+}
+.step-btn b{display:block;font-family:"Andika",Verdana,sans-serif;font-size:.95rem;color:var(--ink);font-weight:700}
+.step-btn:hover{border-color:var(--ink-soft)}
+.step-btn[aria-selected="true"]{border-color:var(--ink);background:var(--panel)}
+
+/* ---- prep panels ---- */
+.prep{display:grid;grid-template-columns:1fr;gap:16px;margin-bottom:26px}
+@media (min-width:640px){.prep{grid-template-columns:1.6fr 1fr}}
+.prep section{background:var(--panel);border-radius:6px;padding:14px 15px}
+.prep h2{margin:0 0 3px;font-size:.88rem;font-weight:600}
+.prep .note{margin:0 0 11px;font-size:.78rem;color:var(--ink-soft);line-height:1.4}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{
+  font-family:"Andika",Verdana,sans-serif;font-size:1.22rem;
+  background:var(--paper);border:1px solid var(--rule);border-radius:4px;
+  padding:5px 11px;cursor:pointer;color:var(--ink);
+}
+.chip:hover{border-color:var(--ink-soft)}
+.chip.heart{border-style:dashed;color:var(--heart);cursor:default}
+.chip.heart::after{content:"♥";font-size:.62em;vertical-align:super;margin-left:3px;font-family:"Archivo",sans-serif}
+
+/* ---- sound-out tray ---- */
+.tray{
+  border:1px solid var(--rule);border-left:3px solid var(--ink);border-radius:4px;
+  padding:14px 16px;margin-bottom:26px;min-height:74px;
+  display:flex;flex-direction:column;justify-content:center;
+}
+.tray .empty{margin:0;color:var(--ink-soft);font-size:.84rem}
+.tray-graph{font-family:"Andika",Verdana,sans-serif;font-size:2.1rem;line-height:1.2;letter-spacing:.02em}
+.tray-graph .g{display:inline-block;padding:0 1px}
+.tray-graph .sep{color:var(--silent);padding:0 6px;font-size:.7em;vertical-align:middle}
+.tray-say{margin:7px 0 0;font-size:.85rem;color:var(--ink-soft)}
+.tray-say strong{color:var(--ink);font-weight:600}
+
+/* grapheme colours */
+.v{color:var(--vowel)}
+.d{color:var(--digraph)}
+.s{color:var(--silent)}
+
+/* ---- story ---- */
+.story{margin-bottom:8px}
+.line{
+  font-family:"Andika",Verdana,Tahoma,sans-serif;
+  font-size:clamp(1.55rem,5.4vw,2.35rem);
+  line-height:1.62;
+  margin:0 0 .35em;
+  letter-spacing:.005em;
+  transition:opacity .18s ease;
+}
+.line:last-child{margin-bottom:0}
+.story.paced .line{opacity:.15}
+.story.paced .line.on{opacity:1}
+.w{cursor:pointer;border-radius:3px;padding:0 1px}
+.w:hover{background:var(--panel)}
+.w.picked{box-shadow:inset 0 -3px 0 var(--focus)}
+.w.heartword{color:var(--heart)}
+.story:not(.marked) .v,
+.story:not(.marked) .d,
+.story:not(.marked) .s{color:inherit}
+
+/* ---- controls ---- */
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:22px 0 0;padding-top:16px;border-top:1px solid var(--rule)}
+.ctl{
+  background:none;border:1px solid var(--rule);border-radius:4px;
+  padding:7px 12px;font:inherit;font-size:.8rem;color:var(--ink-soft);cursor:pointer;
+}
+.ctl:hover{border-color:var(--ink-soft)}
+.ctl[aria-pressed="true"]{border-color:var(--ink);color:var(--ink);background:var(--panel)}
+.pacer{display:none;gap:6px;align-items:center;margin-left:2px}
+.pacer.on{display:flex}
+.pacer button{background:none;border:1px solid var(--rule);border-radius:4px;width:32px;height:32px;font:inherit;color:var(--ink);cursor:pointer}
+.pacer button:hover{border-color:var(--ink-soft)}
+.pacer span{font-size:.78rem;color:var(--ink-soft);min-width:52px}
+.reps{display:flex;align-items:center;gap:8px;margin-left:auto}
+.reps span{font-size:.78rem;color:var(--ink-soft)}
+.dots{display:flex;gap:5px}
+.dot{width:15px;height:15px;border-radius:50%;border:1.5px solid var(--rule);background:none;cursor:pointer;padding:0}
+.dot[data-on="1"]{background:var(--ink);border-color:var(--ink)}
+
+/* ---- grown-up notes ---- */
+details.notes{margin-top:34px;border-top:1px solid var(--rule);padding-top:16px}
+details.notes summary{cursor:pointer;font-size:.86rem;font-weight:600;list-style:none}
+details.notes summary::-webkit-details-marker{display:none}
+details.notes summary::before{content:"+ ";color:var(--ink-soft)}
+details.notes[open] summary::before{content:"– "}
+details.notes .body{max-width:62ch;font-size:.88rem;color:var(--ink-soft);line-height:1.62}
+details.notes h3{font-size:.86rem;color:var(--ink);margin:18px 0 5px}
+details.notes ol,details.notes ul{padding-left:19px;margin:6px 0}
+details.notes li{margin-bottom:5px}
+.key{display:flex;flex-wrap:wrap;gap:14px;margin:10px 0 0;font-size:.82rem}
+.key i{font-style:normal;font-family:"Andika",Verdana,sans-serif;font-weight:700;margin-right:5px;font-size:1.05em}
+
+*:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+@media print{
+  :root{--paper:#fff;--ink:#000;--rule:#ccc;--panel:#fff}
+  .masthead p,.theme-btn,.steps,.controls,details.notes,.tray{display:none}
+  .prep section{border:1px solid #ccc}
+  .line{font-size:26pt;opacity:1!important}
+  .story.paced .line{opacity:1!important}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <h1>Sound It Out</h1>
+    <p>Decodable practice — every word can be sounded out.</p>
+    <button class="theme-btn" id="themeBtn" type="button">Dark</button>
+  </header>
+
+  <div class="steps" id="steps" role="tablist" aria-label="Phonics steps"></div>
+
+  <div class="prep">
+    <section>
+      <h2>Warm up</h2>
+      <p class="note">Sound these out before opening the story. Tap a word to break it into sounds.</p>
+      <div class="chips" id="warmup"></div>
+    </section>
+    <section>
+      <h2>Know by heart</h2>
+      <p class="note">These break the rules. Tell him the word — don't make him sound it out.</p>
+      <div class="chips" id="heart"></div>
+    </section>
+  </div>
+
+  <div class="tray" id="tray" aria-live="polite">
+    <p class="empty">Tap any word above or in the story to see its sounds.</p>
+  </div>
+
+  <div class="story" id="story"></div>
+
+  <div class="controls">
+    <button class="ctl" id="markBtn" type="button" aria-pressed="false">Colour the sounds</button>
+    <button class="ctl" id="paceBtn" type="button" aria-pressed="false">One line at a time</button>
+    <div class="pacer" id="pacer">
+      <button type="button" id="prevLine" aria-label="Previous line">&#8592;</button>
+      <button type="button" id="nextLine" aria-label="Next line">&#8594;</button>
+      <span id="lineCount"></span>
+    </div>
+    <button class="ctl" id="printBtn" type="button">Print</button>
+    <div class="reps">
+      <span>Read through</span>
+      <div class="dots" id="dots"></div>
+    </div>
+  </div>
+
+  <details class="notes">
+    <summary>How to run this</summary>
+    <div class="body">
+      <p>Ten minutes, and he does the reading aloud — not you. The stories are dull on purpose; the job here is decoding practice, and the real books come afterwards when you read to him.</p>
+
+      <h3>The routine</h3>
+      <ol>
+        <li>Warm up on the word list until each one is quick.</li>
+        <li>Read the "know by heart" words <em>to</em> him, twice.</li>
+        <li>He reads the story aloud. If he stalls on a word for more than about three seconds, point at the first letter and say the sound — don't say the word.</li>
+        <li>Read the same story again tomorrow and the day after. Tick a dot each time. The third pass is where fluency shows up, and where he hears himself sound like a reader.</li>
+      </ol>
+
+      <h3>What not to do</h3>
+      <ul>
+        <li>Don't say "what would make sense there?" or "look at the picture" — there are no pictures here for exactly that reason.</li>
+        <li>Don't move to the next step until the current one is comfortable. Repeating an easy step costs nothing; skipping ahead costs weeks.</li>
+        <li>Don't correct every slip mid-sentence. Let him finish the line, then go back to the one word.</li>
+      </ul>
+
+      <h3>Colour key</h3>
+      <div class="key">
+        <span><i class="v">a</i>vowel</span>
+        <span><i class="d">sh</i>two letters, one sound</span>
+        <span><i class="s">e</i>silent</span>
+        <span><i class="heartword" style="color:var(--heart)">the</i>know by heart</span>
+      </div>
+      <p style="margin-top:14px">Each step keeps everything from the steps before it, so Step 4 still uses short vowels and digraphs. Once Step 5 is solid, the next patterns to teach are vowel teams — <b>ai</b>, <b>ea</b>, <b>oa</b>, <b>ee</b> — and that's roughly where BR-range reading crosses into 0L and above.</p>
+    </div>
+  </details>
+
+</div>
+
+<script>
+(function(){
+"use strict";
+
+var HEART = ["the","a","to","he","was","i","of","you","said"];
+
+var STEPS = [
+  {
+    tag:"Step 1", name:"short a",
+    warmup:["sat","cat","fat","bat","mat","rat","ran","man","bag","tag","sad","had","ham","jam"],
+    heart:["the","a","is","has"],
+    lines:[
+      "Sam has a cat.",
+      "The cat is fat.",
+      "The cat sat.",
+      "Sam has a bat.",
+      "The cat ran at the bat.",
+      "Sam ran. The cat ran.",
+      "The cat has the bat!",
+      "Sam is sad."
+    ]
+  },
+  {
+    tag:"Step 2", name:"all short vowels",
+    warmup:["pig","dig","hot","pot","dog","sun","run","bug","hug","red","bed","leg","sit","hit","cup","cut","mud","fox"],
+    heart:["the","a","to","and"],
+    lines:[
+      "The big pig sat in the mud.",
+      "A red fox ran up to him.",
+      "The fox had a hot bun.",
+      "The pig got up.",
+      "The fox cut the bun.",
+      "The fox and the pig had fun in the sun."
+    ]
+  },
+  {
+    tag:"Step 3", name:"sh ch th ck",
+    warmup:["ship","shop","shut","fish","dish","chin","chip","chop","much","this","that","then","with","back","duck","rock","sock","kick"],
+    heart:["the","a","he","was"],
+    lines:[
+      "Jack has a red ship.",
+      "He set it in a big tub.",
+      "A fat fish is in that tub.",
+      "The fish hit the ship.",
+      "Then the ship got a chip in it.",
+      "Jack was sad.",
+      "He set the ship on a rock.",
+      "The fish has the tub!"
+    ]
+  },
+  {
+    tag:"Step 4", name:"blends",
+    warmup:["stop","step","spin","slip","clap","flag","grab","drum","trip","crab","frog","plan","snap","hand","jump","fast","best","milk"],
+    heart:["the","a"],
+    lines:[
+      "A crab sits on the wet sand.",
+      "The crab digs and digs.",
+      "A big frog jumps in.",
+      "The frog grabs a clam.",
+      "Stop! Drop that clam!",
+      "The frog drops the clam in the sand.",
+      "The crab grabs it and runs.",
+      "The frog is not glad."
+    ]
+  },
+  {
+    tag:"Step 5", name:"magic e",
+    warmup:["make","cake","lake","ride","bike","like","time","nine","home","note","rope","safe","cute","mane","pine","hope"],
+    heart:["the","a","he","to"],
+    lines:[
+      "Jake has a red bike.",
+      "He can ride it to the lake.",
+      "At the lake, Jake met a snake.",
+      "The snake is on a rock.",
+      "Jake did not like that.",
+      "He rode home fast.",
+      "Jake is safe at home."
+    ]
+  }
+];
+
+/* ---- split a word into graphemes ---- */
+var DIGRAPHS = ["sh","ch","th","ck","wh","ph","ng","nk","qu"];
+var VOWELS = "aeiou";
+
+function graphemes(word){
+  var w = word.toLowerCase().replace(/[^a-z]/g,"");
+  var silentE = false;
+  // magic e: ends in e, preceded by consonant, preceded by a vowel, word >= 4 letters
+  if (w.length >= 4 && w.charAt(w.length-1) === "e"){
+    var c = w.charAt(w.length-2), v = w.charAt(w.length-3);
+    if (VOWELS.indexOf(c) === -1 && VOWELS.indexOf(v) !== -1) silentE = true;
+  }
+  var body = silentE ? w.slice(0, -1) : w;
+  var out = [], i = 0;
+  while (i < body.length){
+    var pair = body.substr(i,2), hit = false;
+    for (var d = 0; d < DIGRAPHS.length; d++){
+      if (pair === DIGRAPHS[d]){ out.push({t:pair, k:"d"}); i += 2; hit = true; break; }
+    }
+    if (hit) continue;
+    var ch = body.charAt(i);
+    out.push({t:ch, k: VOWELS.indexOf(ch) !== -1 ? "v" : "c"});
+    i++;
+  }
+  if (silentE) out.push({t:"e", k:"s"});
+  return out;
+}
+
+function isHeart(word, stepHeart){
+  var w = word.toLowerCase().replace(/[^a-z]/g,"");
+  if (!w) return false;
+  if (HEART.indexOf(w) !== -1) return true;
+  return stepHeart.some(function(h){ return h.toLowerCase() === w; }) && HEART.indexOf(w) !== -1;
+}
+
+/* ---- state ---- */
+var current = 0;
+var paced = false, marked = false, lineIdx = 0;
+
+var elSteps  = document.getElementById("steps");
+var elWarm   = document.getElementById("warmup");
+var elHeart  = document.getElementById("heart");
+var elTray   = document.getElementById("tray");
+var elStory  = document.getElementById("story");
+var elDots   = document.getElementById("dots");
+var elPacer  = document.getElementById("pacer");
+var elCount  = document.getElementById("lineCount");
+
+/* ---- storage (best effort) ---- */
+function repsGet(i){
+  try {
+    var v = window.localStorage.getItem("soundout:reps:" + i);
+    return v ? parseInt(v,10) || 0 : 0;
+  } catch(e){ return 0; }
+}
+function repsSet(i,n){
+  try { window.localStorage.setItem("soundout:reps:" + i, String(n)); } catch(e){}
+}
+
+/* ---- tray ---- */
+function showSounds(word){
+  var clean = word.replace(/[^A-Za-z]/g,"");
+  if (!clean) return;
+  var heartWord = HEART.indexOf(clean.toLowerCase()) !== -1;
+  var html = "";
+  if (heartWord){
+    html = '<div class="tray-graph"><span class="g" style="color:var(--heart)">' + clean + '</span></div>' +
+           '<p class="tray-say">A heart word. Just tell him: <strong>' + clean.toLowerCase() + '</strong>. It doesn\'t follow the rules yet.</p>';
+  } else {
+    var gs = graphemes(clean), parts = [], says = [];
+    for (var i = 0; i < gs.length; i++){
+      parts.push('<span class="g ' + gs[i].k + '">' + gs[i].t + '</span>');
+      if (gs[i].k !== "s") says.push("/" + gs[i].t + "/");
+    }
+    html = '<div class="tray-graph">' + parts.join('<span class="sep">&#183;</span>') + '</div>' +
+           '<p class="tray-say">' + says.join(" ") + ' &rarr; <strong>' + clean.toLowerCase() + '</strong>' +
+           (gs[gs.length-1].k === "s" ? ' &nbsp;· the <b>e</b> is silent — it makes the vowel say its name.' : '') +
+           '</p>';
+  }
+  elTray.innerHTML = html;
+}
+
+function clearPicked(){
+  var ps = document.querySelectorAll(".w.picked, .chip.picked");
+  for (var i = 0; i < ps.length; i++) ps[i].classList.remove("picked");
+}
+
+/* ---- render ---- */
+function renderChips(){
+  var s = STEPS[current];
+  elWarm.innerHTML = "";
+  s.warmup.forEach(function(w){
+    var b = document.createElement("button");
+    b.className = "chip"; b.type = "button"; b.textContent = w;
+    b.addEventListener("click", function(){ clearPicked(); b.classList.add("picked"); showSounds(w); });
+    elWarm.appendChild(b);
+  });
+  elHeart.innerHTML = "";
+  s.heart.forEach(function(w){
+    var b = document.createElement("span");
+    b.className = "chip heart"; b.textContent = w;
+    elHeart.appendChild(b);
+  });
+}
+
+function renderStory(){
+  var s = STEPS[current];
+  elStory.innerHTML = "";
+  s.lines.forEach(function(line, li){
+    var p = document.createElement("p");
+    p.className = "line";
+    if (li === 0) p.classList.add("on");
+    line.split(" ").forEach(function(tok, ti){
+      if (ti) p.appendChild(document.createTextNode(" "));
+      var core = tok.replace(/[^A-Za-z]/g,"");
+      if (!core){ p.appendChild(document.createTextNode(tok)); return; }
+      var lead = tok.slice(0, tok.indexOf(core.charAt(0)));
+      var tail = tok.slice(tok.indexOf(core.charAt(0)) + core.length);
+      if (lead) p.appendChild(document.createTextNode(lead));
+      var span = document.createElement("span");
+      span.className = "w";
+      if (HEART.indexOf(core.toLowerCase()) !== -1){
+        span.classList.add("heartword");
+        span.textContent = core;
+      } else {
+        var gs = graphemes(core), used = 0;
+        gs.forEach(function(g){
+          var seg = document.createElement("span");
+          seg.className = g.k;
+          seg.textContent = core.substr(used, g.t.length);
+          used += g.t.length;
+          span.appendChild(seg);
+        });
+      }
+      span.addEventListener("click", function(){ clearPicked(); span.classList.add("picked"); showSounds(core); });
+      p.appendChild(span);
+      if (tail) p.appendChild(document.createTextNode(tail));
+    });
+    elStory.appendChild(p);
+  });
+  lineIdx = 0;
+  applyPacing();
+}
+
+function renderDots(){
+  var n = repsGet(current);
+  elDots.innerHTML = "";
+  for (var i = 0; i < 3; i++){
+    (function(k){
+      var d = document.createElement("button");
+      d.className = "dot"; d.type = "button";
+      d.setAttribute("data-on", k < n ? "1" : "0");
+      d.setAttribute("aria-label", "Read-through " + (k+1));
+      d.addEventListener("click", function(){
+        var cur = repsGet(current);
+        repsSet(current, cur === k + 1 ? k : k + 1);
+        renderDots();
+      });
+      elDots.appendChild(d);
+    })(i);
+  }
+}
+
+function applyPacing(){
+  var lines = elStory.querySelectorAll(".line");
+  elStory.classList.toggle("paced", paced);
+  elPacer.classList.toggle("on", paced);
+  for (var i = 0; i < lines.length; i++) lines[i].classList.toggle("on", i === lineIdx);
+  elCount.textContent = paced ? (lineIdx + 1) + " of " + lines.length : "";
+}
+
+function move(delta){
+  var total = STEPS[current].lines.length;
+  lineIdx = Math.max(0, Math.min(total - 1, lineIdx + delta));
+  applyPacing();
+}
+
+function select(i){
+  current = i;
+  var btns = elSteps.querySelectorAll(".step-btn");
+  for (var k = 0; k < btns.length; k++) btns[k].setAttribute("aria-selected", k === i ? "true" : "false");
+  elTray.innerHTML = '<p class="empty">Tap any word above or in the story to see its sounds.</p>';
+  renderChips(); renderStory(); renderDots();
+}
+
+/* ---- build step strip ---- */
+STEPS.forEach(function(s, i){
+  var b = document.createElement("button");
+  b.className = "step-btn"; b.type = "button"; b.setAttribute("role","tab");
+  b.innerHTML = "<b>" + s.name + "</b>" + s.tag;
+  b.addEventListener("click", function(){ select(i); });
+  elSteps.appendChild(b);
+});
+
+/* ---- controls ---- */
+document.getElementById("markBtn").addEventListener("click", function(){
+  marked = !marked;
+  elStory.classList.toggle("marked", marked);
+  this.setAttribute("aria-pressed", marked ? "true" : "false");
+});
+document.getElementById("paceBtn").addEventListener("click", function(){
+  paced = !paced; lineIdx = 0;
+  this.setAttribute("aria-pressed", paced ? "true" : "false");
+  applyPacing();
+});
+document.getElementById("prevLine").addEventListener("click", function(){ move(-1); });
+document.getElementById("nextLine").addEventListener("click", function(){ move(1); });
+document.getElementById("printBtn").addEventListener("click", function(){ window.print(); });
+
+document.addEventListener("keydown", function(e){
+  if (!paced) return;
+  if (e.key === "ArrowRight" || e.key === " "){ e.preventDefault(); move(1); }
+  if (e.key === "ArrowLeft"){ e.preventDefault(); move(-1); }
+});
+
+var themeBtn = document.getElementById("themeBtn");
+themeBtn.addEventListener("click", function(){
+  var dark = document.documentElement.getAttribute("data-theme") === "dark";
+  document.documentElement.setAttribute("data-theme", dark ? "light" : "dark");
+  themeBtn.textContent = dark ? "Dark" : "Light";
+});
+
+select(0);
+})();
+</script>
+</body>
+</html>

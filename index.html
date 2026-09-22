@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sound It Out</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="app/style.css">
+<script type="module" src="app/app.js"></script>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <h1>Sound It Out</h1>
+    <p>Decodable practice — every word can be sounded out.</p>
+    <button class="theme-btn" id="themeBtn" type="button">Dark</button>
+  </header>
+
+  <p class="step-label" id="stepLabel"></p>
+
+  <p class="loading" id="loading">Loading…</p>
+
+  <div class="reading" id="reading" hidden>
+    <div class="prep" id="prep">
+      <section>
+        <h2>Warm up</h2>
+        <p class="note">Sound these out before opening the story. Tap a word to break it into sounds.</p>
+        <div class="chips" id="warmup"></div>
+      </section>
+      <section>
+        <h2>Know by heart</h2>
+        <p class="note">These break the rules. Tell him the word — don't make him sound it out.</p>
+        <div class="chips" id="heart"></div>
+      </section>
+    </div>
+
+    <div class="tray" id="tray" aria-live="polite">
+      <p class="empty">Tap any word above or in the story to see its sounds.</p>
+    </div>
+
+    <div class="story" id="story"></div>
+
+    <div class="controls" id="controls">
+      <button class="ctl" id="markBtn" type="button" aria-pressed="false">Colour the sounds</button>
+      <button class="ctl" id="paceBtn" type="button" aria-pressed="false">One line at a time</button>
+      <div class="pacer" id="pacer">
+        <button type="button" id="prevLine" aria-label="Previous line">&#8592;</button>
+        <button type="button" id="nextLine" aria-label="Next line">&#8594;</button>
+        <span id="lineCount"></span>
+      </div>
+      <button class="ctl" id="stumbleBtn" type="button" aria-pressed="false">Mark stumbles</button>
+      <button class="ctl" id="printBtn" type="button">Print</button>
+      <button class="ctl" id="finishBtn" type="button">Finish</button>
+      <div class="reps">
+        <span>Read through</span>
+        <div class="dots" id="dots"></div>
+      </div>
+    </div>
+    <p class="hint" id="stumbleHint" hidden>Tap a word he stumbled on to mark it. Tap again to unmark. (A long press marks a word at any time.)</p>
+  </div>
+
+  <section class="empty-pool" id="emptyPool" hidden></section>
+
+  <section class="session" id="session" hidden aria-labelledby="sessionHead">
+    <h2 id="sessionHead">This reading</h2>
+    <p class="session-story" id="sessionStory"></p>
+    <p id="sessionCount"></p>
+    <div class="chips" id="sessionWords"></div>
+    <h3>Last five sessions</h3>
+    <p class="note">Words marked each time, oldest first.</p>
+    <ol class="trend" id="sessionTrend"></ol>
+    <p class="note">If this was a full read-through, tick a dot under the story.</p>
+    <button class="ctl" id="backBtn" type="button">Back to the story</button>
+  </section>
+
+  <p class="save-note" id="saveNote" role="status" hidden></p>
+
+  <details class="notes" id="notes">
+    <summary>How to run this, and step settings</summary>
+    <div class="body">
+      <div class="grownup" id="grownup">
+        <h3>This step</h3>
+        <p id="readiness"></p>
+        <p class="skipped" id="skippedNote" hidden></p>
+        <div class="gu-actions">
+          <button class="ctl" id="differentBtn" type="button">Different story</button>
+          <span class="confirm-wrap" id="promoteWrap">
+            <button class="ctl" id="promoteBtn" type="button"></button>
+            <span class="confirm" id="promoteConfirm" hidden>
+              <span id="promoteAsk"></span>
+              <button class="ctl" id="promoteYes" type="button">Yes, move</button>
+              <button class="ctl" id="promoteNo" type="button">Cancel</button>
+            </span>
+          </span>
+        </div>
+        <p class="back-wrap" id="backStepWrap">
+          <button class="linkish" id="backStepBtn" type="button"></button>
+          <span class="confirm" id="backStepConfirm" hidden>
+            <span id="backStepAsk"></span>
+            <button class="ctl" id="backStepYes" type="button">Yes, go back</button>
+            <button class="ctl" id="backStepNo" type="button">Cancel</button>
+          </span>
+        </p>
+        <p class="note">Moving on is your call. Repeating an easy step costs nothing.</p>
+      </div>
+
+      <p>Ten minutes, and he does the reading aloud — not you. The stories are dull on purpose; the job here is decoding practice, and the real books come afterwards when you read to him.</p>
+
+      <h3>The routine</h3>
+      <ol>
+        <li>Warm up on the word list until each one is quick.</li>
+        <li>Read the "know by heart" words <em>to</em> him, twice.</li>
+        <li>He reads the story aloud. If he stalls on a word for more than about three seconds, point at the first letter and say the sound — don't say the word.</li>
+        <li>Read the same story again tomorrow and the day after. Tick a dot each time. The third pass is where fluency shows up, and where he hears himself sound like a reader.</li>
+      </ol>
+
+      <h3>Marking stumbles</h3>
+      <p>Turn on "Mark stumbles" and tap the words he got stuck on, or long-press a word at any time. Press "Finish" at the end: the marked words are saved and come back in tomorrow's warm-up.</p>
+
+      <h3>What not to do</h3>
+      <ul>
+        <li>Don't say "what would make sense there?" or "look at the picture" — there are no pictures here for exactly that reason.</li>
+        <li>Don't move to the next step until the current one is comfortable. Repeating an easy step costs nothing; skipping ahead costs weeks.</li>
+        <li>Don't correct every slip mid-sentence. Let him finish the line, then go back to the one word.</li>
+      </ul>
+
+      <h3>Colour key</h3>
+      <div class="key">
+        <span><i class="v">a</i>vowel</span>
+        <span><i class="d">sh</i>two letters, one sound</span>
+        <span><i class="s">e</i>silent</span>
+        <span><i class="heartword">the</i>know by heart</span>
+      </div>
+      <p class="after-key">Each step keeps everything from the steps before it, so Step 4 still uses short vowels and digraphs. Once Step 5 is solid, the next patterns to teach are vowel teams — <b>ai</b>, <b>ea</b>, <b>oa</b>, <b>ee</b> — and that's roughly where BR-range reading crosses into 0L and above.</p>
+    </div>
+  </details>
+
+</div>
+</body>
+</html>

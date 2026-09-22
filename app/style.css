@@ -1,0 +1,260 @@
+/* Decodable Reader — ported from docs/prototype.html. No external requests:
+   Andika is served from /fonts/, the UI face is the system stack. */
+
+@font-face{
+  font-family:"Andika";
+  font-style:normal;
+  font-weight:400;
+  font-display:swap;
+  src:url("/fonts/andika-400-latin.woff2") format("woff2");
+}
+@font-face{
+  font-family:"Andika";
+  font-style:normal;
+  font-weight:700;
+  font-display:swap;
+  src:url("/fonts/andika-700-latin.woff2") format("woff2");
+}
+
+:root{
+  --paper:#FCFCFA;
+  --ink:#16202B;
+  --ink-soft:#5A6773;
+  --rule:#E2E6E2;
+  --panel:#F3F5F2;
+  --vowel:#C8322B;
+  --digraph:#1F7A5C;
+  --heart:#7A4FB5;
+  --silent:#A8B2BA;
+  --focus:#16202B;
+  --mark:#F4E3A1;
+  --reading:"Andika",Verdana,Tahoma,sans-serif;
+  --ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#131A20;
+    --ink:#EDF1F3;
+    --ink-soft:#97A4AE;
+    --rule:#26313A;
+    --panel:#1B242C;
+    --vowel:#FF8A7A;
+    --digraph:#5FD3A8;
+    --heart:#C3A2F0;
+    --silent:#5C6771;
+    --focus:#EDF1F3;
+    --mark:#5A4B1C;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#131A20;
+  --ink:#EDF1F3;
+  --ink-soft:#97A4AE;
+  --rule:#26313A;
+  --panel:#1B242C;
+  --vowel:#FF8A7A;
+  --digraph:#5FD3A8;
+  --heart:#C3A2F0;
+  --silent:#5C6771;
+  --focus:#EDF1F3;
+  --mark:#5A4B1C;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0;
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--ui);
+  font-size:16px;
+  line-height:1.5;
+  -webkit-text-size-adjust:100%;
+  -webkit-tap-highlight-color:transparent;
+  overflow-wrap:break-word;
+}
+[hidden]{display:none!important}
+.wrap{max-width:860px;margin:0 auto;padding:20px 16px 72px}
+@media (min-width:640px){.wrap{padding:24px 20px 72px}}
+
+/* ---- masthead ---- */
+.masthead{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 10px;margin-bottom:10px}
+.masthead h1{
+  font-family:var(--reading);
+  font-size:1.35rem;font-weight:700;margin:0;letter-spacing:-.01em;
+}
+.masthead p{margin:0;color:var(--ink-soft);font-size:.86rem}
+.theme-btn{
+  margin-left:auto;background:none;border:1px solid var(--rule);color:var(--ink-soft);
+  border-radius:999px;padding:6px 14px;font:inherit;font-size:.78rem;cursor:pointer;min-height:34px;
+}
+.theme-btn:hover{border-color:var(--ink-soft)}
+
+/* ---- step label (replaces the prototype's step strip) ---- */
+.step-label{margin:0 0 20px;font-size:.82rem;color:var(--ink-soft)}
+.step-label b{font-family:var(--reading);font-weight:700;color:var(--ink);font-size:.95rem;margin-right:6px}
+.loading{color:var(--ink-soft);font-size:.9rem}
+
+/* ---- prep panels ---- */
+.prep{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin-bottom:26px}
+@media (min-width:640px){.prep{grid-template-columns:minmax(0,1.6fr) minmax(0,1fr)}}
+.prep section{background:var(--panel);border-radius:6px;padding:14px 15px}
+.prep h2{margin:0 0 3px;font-size:.88rem;font-weight:600}
+.note{margin:0 0 11px;font-size:.78rem;color:var(--ink-soft);line-height:1.4}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{
+  font-family:var(--reading);font-size:1.22rem;line-height:1.4;
+  background:var(--paper);border:1px solid var(--rule);border-radius:4px;
+  padding:6px 12px;cursor:pointer;color:var(--ink);min-height:40px;
+}
+.chip:hover{border-color:var(--ink-soft)}
+.chip.picked{box-shadow:inset 0 -3px 0 var(--focus)}
+.chip.heart{border-style:dashed;color:var(--heart)}
+span.chip.heart{cursor:default}
+.chip.heart::after{content:"\2665";font-size:.62em;vertical-align:super;margin-left:3px;font-family:var(--ui)}
+.chip.plain{cursor:default}
+
+/* ---- sound-out tray ---- */
+.tray{
+  border:1px solid var(--rule);border-left:3px solid var(--ink);border-radius:4px;
+  padding:14px 16px;margin-bottom:26px;min-height:74px;
+  display:flex;flex-direction:column;justify-content:center;
+}
+.tray .empty{margin:0;color:var(--ink-soft);font-size:.84rem}
+.tray-graph{font-family:var(--reading);font-size:2.1rem;line-height:1.2;letter-spacing:.02em}
+.tray-graph .g{display:inline-block;padding:0 1px}
+.tray-graph .sep{color:var(--silent);padding:0 6px;font-size:.7em;vertical-align:middle}
+.tray-graph .heartword{color:var(--heart)}
+.tray-say{margin:7px 0 0;font-size:.85rem;color:var(--ink-soft)}
+.tray-say strong{color:var(--ink);font-weight:600}
+/* the /ā/ labels: Andika carries the combining macron, keeps it on the vowel */
+.snd{font-family:var(--reading);font-size:1.08em;color:var(--ink)}
+
+/* grapheme colours */
+.v,.t{color:var(--vowel)}
+.d{color:var(--digraph)}
+.s{color:var(--silent)}
+.heartword{color:var(--heart)}
+
+/* ---- story ---- */
+.story{margin-bottom:8px}
+.story-title{
+  font-family:var(--reading);font-weight:700;
+  font-size:clamp(1.35rem,4.4vw,1.8rem);line-height:1.4;margin:0 0 .6em;
+}
+.line{
+  font-family:var(--reading);
+  font-size:clamp(1.55rem,5.4vw,2.35rem);
+  line-height:1.62;
+  margin:0 0 .35em;
+  letter-spacing:.005em;
+  transition:opacity .18s ease;
+}
+.line:last-child{margin-bottom:0}
+.story.paced .line{opacity:.15}
+.story.paced .line.on{opacity:1}
+.story{
+  -webkit-user-select:none;user-select:none;
+  -webkit-touch-callout:none;
+}
+.w{
+  cursor:pointer;border-radius:3px;padding:0 1px;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+  touch-action:manipulation;
+}
+@media (hover:hover){.w:hover{background:var(--panel)}}
+.w.picked{box-shadow:inset 0 -3px 0 var(--focus)}
+.w.stumble{background:var(--mark);box-shadow:inset 0 -2px 0 var(--ink-soft)}
+.w.stumble.picked{box-shadow:inset 0 -3px 0 var(--focus)}
+.story:not(.marked) .v,
+.story:not(.marked) .t,
+.story:not(.marked) .d,
+.story:not(.marked) .s{color:inherit}
+.story.stumbling .w{cursor:cell}
+
+/* ---- controls ---- */
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:22px 0 0;padding-top:16px;border-top:1px solid var(--rule)}
+.ctl{
+  background:none;border:1px solid var(--rule);border-radius:4px;
+  padding:8px 12px;font:inherit;font-size:.82rem;color:var(--ink-soft);cursor:pointer;
+  min-height:40px;
+}
+.ctl:hover{border-color:var(--ink-soft)}
+.ctl[aria-pressed="true"]{border-color:var(--ink);color:var(--ink);background:var(--panel)}
+.pacer{display:none;gap:6px;align-items:center;margin-left:2px}
+.pacer.on{display:flex}
+.pacer button{background:none;border:1px solid var(--rule);border-radius:4px;width:44px;height:40px;font:inherit;color:var(--ink);cursor:pointer}
+.pacer button:hover{border-color:var(--ink-soft)}
+.pacer span{font-size:.78rem;color:var(--ink-soft);min-width:52px}
+.reps{display:flex;align-items:center;gap:8px;margin-left:auto}
+.reps span{font-size:.78rem;color:var(--ink-soft)}
+.dots{display:flex;gap:2px}
+/* 36px hit area around a 17px dot */
+.dot{
+  width:36px;height:36px;padding:0;border:0;background:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+}
+.dot::before{
+  content:"";width:17px;height:17px;border-radius:50%;
+  border:1.5px solid var(--ink-soft);background:none;
+}
+.dot[data-on="1"]::before{background:var(--ink);border-color:var(--ink)}
+.hint{margin:10px 0 0;font-size:.8rem;color:var(--ink-soft)}
+
+/* ---- empty pool, session view, notes ---- */
+.empty-pool{background:var(--panel);border-radius:6px;padding:16px;font-size:.92rem;margin-bottom:20px}
+.empty-pool p{margin:0 0 8px}
+.empty-pool p:last-child{margin-bottom:0}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.9em;background:var(--paper);border:1px solid var(--rule);border-radius:3px;padding:1px 5px;overflow-wrap:anywhere}
+
+.session{margin-bottom:10px}
+.session h2{font-size:1.05rem;margin:0 0 4px}
+.session h3{font-size:.9rem;margin:24px 0 2px}
+.session-story{margin:0 0 10px;font-family:var(--reading);font-size:1.15rem}
+.session .chips{margin:6px 0 4px}
+.trend{list-style:none;margin:6px 0 16px;padding:0;font-size:.85rem;max-width:520px}
+.trend li{display:grid;grid-template-columns:minmax(0,1fr) 110px 2.2em;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--rule)}
+.trend .what{color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trend .bar{height:8px;background:var(--rule);border-radius:4px;overflow:hidden}
+.trend .bar i{display:block;height:100%;background:var(--ink-soft)}
+.trend .n{text-align:right;font-variant-numeric:tabular-nums}
+
+.save-note{margin:18px 0 0;font-size:.85rem;color:var(--vowel)}
+
+details.notes{margin-top:34px;border-top:1px solid var(--rule);padding-top:16px}
+details.notes summary{cursor:pointer;font-size:.86rem;font-weight:600;list-style:none;min-height:32px}
+details.notes summary::-webkit-details-marker{display:none}
+details.notes summary::before{content:"+ ";color:var(--ink-soft)}
+details.notes[open] summary::before{content:"\2013  "}
+details.notes .body{max-width:62ch;font-size:.88rem;color:var(--ink-soft);line-height:1.62}
+details.notes h3{font-size:.86rem;color:var(--ink);margin:18px 0 5px}
+details.notes ol,details.notes ul{padding-left:19px;margin:6px 0}
+details.notes li{margin-bottom:5px}
+.grownup{background:var(--panel);border-radius:6px;padding:4px 14px 12px;margin:12px 0 8px}
+.grownup p{margin:6px 0}
+.grownup .note{margin:10px 0 0}
+.gu-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.confirm-wrap{display:inline-flex;flex-wrap:wrap;gap:8px;align-items:center}
+.confirm{display:inline-flex;flex-wrap:wrap;gap:8px;align-items:center;color:var(--ink)}
+.linkish{background:none;border:0;padding:8px 0;font:inherit;font-size:.84rem;color:var(--ink-soft);text-decoration:underline;cursor:pointer;min-height:36px}
+.back-wrap{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.skipped{color:var(--ink-soft);font-style:italic}
+.key{display:flex;flex-wrap:wrap;gap:14px;margin:10px 0 0;font-size:.82rem}
+.key i{font-style:normal;font-family:var(--reading);font-weight:700;margin-right:5px;font-size:1.05em}
+.after-key{margin-top:14px}
+
+*:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+@media print{
+  :root{--paper:#fff;--ink:#000;--rule:#ccc;--panel:#fff}
+  .masthead p,.theme-btn,.step-label,.controls,.hint,details.notes,.tray,.save-note,.session,.empty-pool{display:none!important}
+  .prep section{border:1px solid #ccc}
+  .chip.picked,.w.picked{box-shadow:none}
+  .w.stumble{background:none;box-shadow:none}
+  .story-title{font-size:22pt}
+  .line{font-size:26pt;opacity:1!important}
+  .story.paced .line{opacity:1!important}
+}
